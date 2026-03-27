@@ -4,6 +4,8 @@ WORKDIR /app
 ENV DATABASE_URL=postgresql://footytips:footytips@db:5432/footytips?schema=public
 ENV APP_URL=http://localhost:3000
 
+RUN apk add --no-cache curl
+
 COPY package*.json ./
 RUN npm ci --ignore-scripts
 

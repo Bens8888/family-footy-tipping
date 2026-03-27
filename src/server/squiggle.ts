@@ -1,3 +1,6 @@
+import { promisify } from "node:util";
+import { execFile } from "node:child_process";
+
 import { getAppConfig } from "@/lib/config";
 
 type SquiggleGame = {
@@ -20,25 +23,9 @@ type SquiggleGame = {
   is_grand_final: number;
 };
 
-export async function fetchSeasonGames() {
-  const config = getAppConfig();
-  const url = new URL(config.squiggleBaseUrl);
-  url.searchParams.set("q", `games;year=${config.seasonYear};format=json`);
+const execFileAsync = promisify(execFile);
 
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      "User-Agent": config.squiggleUserAgent,
-      Accept: "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Squiggle returned ${response.status}.`);
-  }
-
-  const text = await response.text();
-
+async function parseSquiggleResponse(text: string) {
   if (text.trim().startsWith("<")) {
     throw new Error("Squiggle returned HTML instead of JSON.");
   }
@@ -58,4 +45,50 @@ export async function fetchSeasonGames() {
   }
 
   return (data.games ?? []).filter((game) => game.hteam && game.ateam);
+}
+
+async function fetchWithCurl(url: string, userAgent: string) {
+  const { stdout } = await execFileAsync("curl", [
+    "-sS",
+    "-A",
+    userAgent,
+    "-H",
+    "Accept: application/json",
+    url,
+  ]);
+
+  return stdout;
+}
+
+export async function fetchSeasonGames() {
+  const config = getAppConfig();
+  const url = new URL(config.squiggleBaseUrl);
+  url.searchParams.set("q", `games;year=${config.seasonYear};format=json`);
+  const urlString = url.toString();
+
+  try {
+    const response = await fetch(urlString, {
+      cache: "no-store",
+      headers: {
+        "User-Agent": config.squiggleUserAgent,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Squiggle returned ${response.status}.`);
+    }
+
+    const text = await response.text();
+    return await parseSquiggleResponse(text);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Squiggle fetch failed.";
+
+    if (!message.includes("HTML") && !message.includes("invalid JSON")) {
+      throw error;
+    }
+
+    const fallbackText = await fetchWithCurl(urlString, config.squiggleUserAgent);
+    return await parseSquiggleResponse(fallbackText);
+  }
 }
