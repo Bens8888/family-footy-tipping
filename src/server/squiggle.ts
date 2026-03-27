@@ -62,9 +62,10 @@ async function fetchWithCurl(url: string, userAgent: string) {
 
 export async function fetchSeasonGames() {
   const config = getAppConfig();
-  const url = new URL(config.squiggleBaseUrl);
-  url.searchParams.set("q", `games;year=${config.seasonYear};format=json`);
-  const urlString = url.toString();
+  const baseUrl = config.squiggleBaseUrl.endsWith("/")
+    ? config.squiggleBaseUrl
+    : `${config.squiggleBaseUrl}/`;
+  const urlString = `${baseUrl}?q=games;year=${config.seasonYear};format=json`;
 
   try {
     const response = await fetch(urlString, {
