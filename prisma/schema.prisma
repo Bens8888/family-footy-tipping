@@ -1,0 +1,117 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoundStatus {
+  UPCOMING
+  IN_PROGRESS
+  COMPLETE
+}
+
+model Member {
+  id         String      @id @default(cuid())
+  slug       String      @unique
+  name       String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  tips       Tip[]
+  marginTips MarginTip[]
+}
+
+model Round {
+  id          String      @id @default(cuid())
+  year        Int
+  number      Int
+  name        String
+  startsAt    DateTime
+  endsAt      DateTime
+  firstMatchAt DateTime
+  status      RoundStatus @default(UPCOMING)
+  syncedAt    DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  matches     Match[]
+  marginTips  MarginTip[]
+  weeklyWin   WeeklyWin?
+
+  @@unique([year, number])
+  @@index([year, number])
+  @@index([status, firstMatchAt])
+}
+
+model Match {
+  id              String    @id @default(cuid())
+  externalId      Int       @unique
+  roundId         String
+  year            Int
+  roundNumber     Int
+  startsAt        DateTime
+  venue           String?
+  homeTeam        String
+  awayTeam        String
+  homeTeamShort   String
+  awayTeamShort   String
+  homeScore       Int?
+  awayScore       Int?
+  complete        Int       @default(0)
+  winnerTeam      String?
+  winnerTeamShort String?
+  stateLabel      String?
+  isFinal         Boolean   @default(false)
+  updatedAt       DateTime
+  createdAt       DateTime  @default(now())
+  round           Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  tips            Tip[]
+
+  @@index([roundId, startsAt])
+}
+
+model Tip {
+  id            String   @id @default(cuid())
+  memberId      String
+  matchId       String
+  selectedTeam  String
+  selectedShort String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  member        Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, matchId])
+  @@index([matchId])
+}
+
+model MarginTip {
+  id        String   @id @default(cuid())
+  memberId  String
+  roundId   String
+  guess     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  round     Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, roundId])
+  @@index([roundId])
+}
+
+model WeeklyWin {
+  id                 String   @id @default(cuid())
+  roundId            String   @unique
+  winnerSlugs        String[] @default([])
+  winnerNames        String[] @default([])
+  points             Int
+  correctTips        Int
+  marginError        Int?
+  marginBonusAwarded Boolean  @default(false)
+  computedAt         DateTime @default(now())
+  round              Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([computedAt])
+}
+
