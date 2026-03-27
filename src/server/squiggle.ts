@@ -23,7 +23,7 @@ type SquiggleGame = {
 export async function fetchSeasonGames() {
   const config = getAppConfig();
   const url = new URL(config.squiggleBaseUrl);
-  url.searchParams.set("q", `games;year=${config.seasonYear}`);
+  url.searchParams.set("q", `games;year=${config.seasonYear};format=json`);
 
   const response = await fetch(url, {
     cache: "no-store",
@@ -37,7 +37,20 @@ export async function fetchSeasonGames() {
     throw new Error(`Squiggle returned ${response.status}.`);
   }
 
-  const data = (await response.json()) as { games?: SquiggleGame[] };
+  const text = await response.text();
+
+  if (text.trim().startsWith("<")) {
+    throw new Error("Squiggle returned HTML instead of JSON.");
+  }
+
+  let data: { games?: SquiggleGame[] };
+
+  try {
+    data = JSON.parse(text) as { games?: SquiggleGame[] };
+  } catch {
+    throw new Error("Squiggle returned invalid JSON.");
+  }
+
   const first = data.games?.[0];
 
   if (first && "error" in first) {
@@ -46,4 +59,3 @@ export async function fetchSeasonGames() {
 
   return (data.games ?? []).filter((game) => game.hteam && game.ateam);
 }
-
