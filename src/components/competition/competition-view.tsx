@@ -35,7 +35,6 @@ type CompetitionViewProps = {
     correctTips: number;
     marginGuess: number | null;
     marginError: number | null;
-    bonusPoint: number;
   }[];
   lastWeekWinner: {
     roundName: string;
@@ -69,7 +68,7 @@ export function CompetitionView({
         <CardHeader>
           <CardTitle>{currentRound.name} leaderboard</CardTitle>
           <CardDescription>
-            Ranked by points, then correct tips, then closest first-game margin.
+            Ranked by correct tips first. If people are tied, the closest first-game margin breaks the tie.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -87,8 +86,10 @@ export function CompetitionView({
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-sm text-[#c5d0db]">
                 <div>{row.correctTips} correct</div>
-                <div>{row.bonusPoint ? "+1 margin" : "No bonus"}</div>
                 <div>{formatMargin(row.marginGuess)}</div>
+                <div>
+                  {row.marginError === null ? "No margin yet" : `${row.marginError} away`}
+                </div>
               </div>
             </div>
           ))}
@@ -157,4 +158,3 @@ export function CompetitionView({
     </div>
   );
 }
-

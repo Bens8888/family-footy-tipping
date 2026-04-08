@@ -64,7 +64,6 @@ async function computeAndStoreWeeklyWinners() {
       correctTips: 0,
       marginGuess: round.marginTips.find((tip) => tip.member.slug === member.slug)?.guess ?? null,
       marginError: null as number | null,
-      bonusPoint: 0,
     }));
 
     for (const match of round.matches) {
@@ -87,27 +86,13 @@ async function computeAndStoreWeeklyWinners() {
         : null;
 
     if (actualMargin !== null) {
-      const errors = memberRows
-        .map((row) => absoluteDifference(row.marginGuess, actualMargin))
-        .filter((value): value is number => value !== null);
-
-      const closestError = errors.length ? Math.min(...errors) : null;
-
       for (const row of memberRows) {
         row.marginError = absoluteDifference(row.marginGuess, actualMargin);
-
-        if (closestError !== null && row.marginError === closestError) {
-          row.bonusPoint = 1;
-        }
       }
     }
 
     const ranked = [...memberRows].sort((left, right) => {
-      const leftTotal = left.correctTips + left.bonusPoint;
-      const rightTotal = right.correctTips + right.bonusPoint;
-
       return (
-        rightTotal - leftTotal ||
         right.correctTips - left.correctTips ||
         (left.marginError ?? Number.POSITIVE_INFINITY) -
           (right.marginError ?? Number.POSITIVE_INFINITY) ||
@@ -117,11 +102,7 @@ async function computeAndStoreWeeklyWinners() {
 
     const leader = ranked[0];
     const winnerRows = ranked.filter((row) => {
-      const rowTotal = row.correctTips + row.bonusPoint;
-      const leaderTotal = leader.correctTips + leader.bonusPoint;
-
       return (
-        rowTotal === leaderTotal &&
         row.correctTips === leader.correctTips &&
         (row.marginError ?? Number.POSITIVE_INFINITY) ===
           (leader.marginError ?? Number.POSITIVE_INFINITY)
@@ -135,7 +116,7 @@ async function computeAndStoreWeeklyWinners() {
       update: {
         winnerSlugs: winnerRows.map((row) => row.slug),
         winnerNames: winnerRows.map((row) => row.name),
-        points: leader.correctTips + leader.bonusPoint,
+        points: leader.correctTips,
         correctTips: leader.correctTips,
         marginError: leader.marginError,
         marginBonusAwarded: actualMargin !== null,
@@ -145,7 +126,7 @@ async function computeAndStoreWeeklyWinners() {
         roundId: round.id,
         winnerSlugs: winnerRows.map((row) => row.slug),
         winnerNames: winnerRows.map((row) => row.name),
-        points: leader.correctTips + leader.bonusPoint,
+        points: leader.correctTips,
         correctTips: leader.correctTips,
         marginError: leader.marginError,
         marginBonusAwarded: actualMargin !== null,
@@ -474,31 +455,17 @@ export async function getRoundLeaderboard(roundId: string) {
       correctTips,
       marginGuess,
       marginError: absoluteDifference(marginGuess, actualMargin),
-      bonusPoint: 0,
     };
   });
-
-  const marginErrors = rows
-    .map((row) => row.marginError)
-    .filter((value): value is number => value !== null);
-  const closestMargin =
-    actualMargin === null || marginErrors.length === 0 ? null : Math.min(...marginErrors);
-
-  for (const row of rows) {
-    if (closestMargin !== null && row.marginError === closestMargin) {
-      row.bonusPoint = 1;
-    }
-  }
 
   return rows
     .map((row) => ({
       ...row,
-      totalPoints: row.correctTips + row.bonusPoint,
+      totalPoints: row.correctTips,
     }))
     .sort((left, right) => {
       return (
         right.totalPoints - left.totalPoints ||
-        right.correctTips - left.correctTips ||
         (left.marginError ?? Number.POSITIVE_INFINITY) -
           (right.marginError ?? Number.POSITIVE_INFINITY) ||
         left.memberName.localeCompare(right.memberName)
